@@ -163,28 +163,6 @@ cl_attr_freq[iattr][curattr] is the probability of attribute at the iattr having
 clust_members is the number of data objects in the cluster
 '''
 
-# def cal_lambda(cl_attr_freq, clust_members):
-#     '''Re-calculate optimal bandwitch for each cluster'''
-#     if clust_members <= 1:
-#         return 0.
-#
-#     numerator = 0.
-#     denominator = 0.
-#
-#     for iattr, curattr in enumerate(cl_attr_freq):
-#         n_ = 0.
-#         d_ = 0.
-#         keys = curattr.keys()
-#         for key in keys:
-#             n_ += 1.0 * curattr[key] / clust_members
-#             d_ += math.pow(1.0 * curattr[key] / clust_members, 2) - 1.0 / (len(keys))
-#         numerator += math.pow(1 - n_, 2)
-#         denominator += d_
-#
-#     # print denominator
-#     # assert denominator != 0, "How can denominator equal to 0?"
-#     return 1.0 * numerator / ((clust_members - 1) * denominator)
-
 def cal_lambda(cl_attr_freq, clust_members):
     '''Re-calculate optimal bandwitch for each cluster'''
     if clust_members <= 1:
@@ -207,11 +185,6 @@ def cal_lambda(cl_attr_freq, clust_members):
     # assert denominator != 0, "How can denominator equal to 0?"
     if clust_members == 1 or denominator == 0:
         return 0
-    result = (1.0 * numerator) / ((clust_members - 1) * denominator)
-    if result < 0:
-        return 0;
-    if result > 1:
-        return 1
     return (1.0 * numerator) / ((clust_members - 1) * denominator)
 
 def _cal_global_attr_freq(X, npoints, nattrs, categorical):
@@ -257,7 +230,7 @@ def cal_centroid_value(lbd, cl_attr_freq_attr, cluster_members, attr_count):
 
 def cal_mean_value(X, indexAttr):
     # print(X.iloc[:,indexAttr])
-    meanValue = mean(np.asarray(X.iloc[:,indexAttr], dtype= float))
+    meanValue = np.mean(np.asarray(X.iloc[:,indexAttr], dtype= float))
     return round(meanValue,3)
 
 '''
@@ -370,7 +343,7 @@ def numericImputation(inSetDFNum, comSetDFNum, IDList):
     imputeValues = []
     # Calculate the mean of each numeric attributes in the list of objects
     for j in range(0, comSetDFNum.shape[1]):
-        imputeValues.append(round(mean(pd.to_numeric(listOfObjects.iloc[:, j])), 2))
+        imputeValues.append(round(np.mean(pd.to_numeric(listOfObjects.iloc[:, j])), 2))
     indexList = inObjectNum.index.T.values
     l=0
     for k in range(0, len(indexList)):
@@ -396,7 +369,7 @@ def euclidean_dissim(a, b, **_):
 
 # This function is to calculate the means of all numeric columns in the complete numeric dataset.
 def meansColumn(comSetDFNum, column):
-    return round(mean(pd.to_numeric(comSetDFNum.iloc[:,column])), 2)
+    return round(np.mean(pd.to_numeric(comSetDFNum.iloc[:,column])), 2)
 
 '''
 The k-CMM algorithm for clustering a mixed dataset with missing values X into k clusters.
@@ -544,17 +517,6 @@ def perform_kCMM(X, categorical, n_clusters, init, verbose, use_global_attr_coun
         # print("\n")
         # print(inSetDF)
         # '''
-        # Bước lặp chính của thuật toán
-        # 1. Tính các vector trung tâm, lambda
-        # 2. Nếu dissimilarity mới (cost) nhỏ hơn thì cập nhật và tiếp tục thực
-        # hiện thuật toán lần nữa (từ bước 1).
-        # Nếu lớn hơn thì kết thúc thuật toán.
-        # '''
-        # while itr <= max_iter and not converged:
-        # while not converged:
-        #     itr += 1
-        #     if verbose:
-        #         print("...k-center loop")
         centroids, moves, lbd = _k_CMM_iter(comSet, categorical, centroids, cl_attr_freq, membership, global_attr_freq, lbd,
                                                 use_global_attr_count)
         labels, ncost = _labels_cost(comSet, categorical, centroids, global_attr_freq)
