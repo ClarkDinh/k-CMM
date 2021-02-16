@@ -5,20 +5,18 @@ Clustering for mixed categorical and numerical features by relative frequencies 
 """
 from __future__ import division
 import sys
-from joblib import Parallel, delayed
 from scipy import sparse
+from sklearn.utils import check_random_state
+from sklearn.utils.validation import check_array
+from scipy import sparse
+from collections import defaultdict
+import numpy as np
 import evaluation
-from kmodes import kmodes
-from kmodes.util import encode_features, get_unique_rows, \
-    decode_centroids, pandas_to_numpy
-from kmodes.util.dissim import euclidean_dissim, vectors_matching_dissim, ITBD
-from kmodes.kp_itbd import *
+from lib import kmodes
+from lib.util.dissim import euclidean_dissim, vectors_matching_dissim, ITBD
+from lib.util import encode_features, get_unique_rows, decode_centroids, pandas_to_numpy
 from sklearn.metrics.cluster import homogeneity_completeness_v_measure
 import pandas as pd
-# For measuring the time for running program
-# source: http://stackoverflow.com/a/1557906/6009280
-# or https://www.w3resource.com/python-exercises/python-basic-exercise-57.php
-# import atexit
 from time import time
 from datetime import timedelta
 
@@ -362,13 +360,6 @@ def kernel_ITBD(X, categorical, n_clusters, max_iter, num_dissim, cat_dissim,
                                               n_clusters, n_points, max_iter,
                                               num_dissim, cat_dissim, gamma,
                                               init, init_no, verbose, seeds[init_no]))
-    else:
-        results = Parallel(n_jobs=n_jobs, verbose=0)(
-            delayed(kernel_ITBD_single)(Xnum, Xcat, nnumattrs, ncatattrs,
-                                        n_clusters, n_points, max_iter,
-                                        num_dissim, cat_dissim, gamma,
-                                        init, init_no, verbose, seed)
-            for init_no, seed in enumerate(seeds))
     all_centroids, all_labels, all_costs, all_n_iters, all_epoch_costs = zip(*results)
 
     best = np.argmin(all_costs)
@@ -381,95 +372,8 @@ def kernel_ITBD(X, categorical, n_clusters, max_iter, num_dissim, cat_dissim,
 
 
 class KernelITBD(kmodes.KModes):
-    """k-protoypes clustering algorithm for mixed numerical/categorical data.
-
-    Parameters
-    -----------
-    n_clusters : int, optional, default: 8
-        The number of clusters to form as well as the number of
-        centroids to generate.
-
-    max_iter : int, default: 100
-        Maximum number of iterations of the k-modes algorithm for a
-        single run.
-
-    num_dissim : func, default: euclidian_dissim
-        Dissimilarity function used by the algorithm for numerical variables.
-        Defaults to the Euclidian dissimilarity function.
-
-    cat_dissim : func, default: matching_dissim
-        Dissimilarity function used by the kmodes algorithm for categorical variables.
-        Defaults to the matching dissimilarity function.
-
-    n_init : int, default: 10
-        Number of time the k-modes algorithm will be run with different
-        centroid seeds. The final results will be the best output of
-        n_init consecutive runs in terms of cost.
-
-    init : {'Huang', 'Cao', 'random' or a list of ndarrays}, default: 'Cao'
-        Method for initialization:
-        'Huang': Method in Huang [1997, 1998]
-        'Cao': Method in Cao et al. [2009]
-        'random': choose 'n_clusters' observations (rows) at random from
-        data for the initial centroids.
-        If a list of ndarrays is passed, it should be of length 2, with
-        shapes (n_clusters, n_features) for numerical and categorical
-        data respectively. These are the initial centroids.
-
-    gamma : float, default: None
-        Weighing factor that determines relative importance of numerical vs.
-        categorical attributes (see discussion in Huang [1997]). By default,
-        automatically calculated from data.
-
-    verbose : integer, optional
-        Verbosity mode.
-
-    random_state : int, RandomState instance or None, optional, default: None
-        If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
-        If None, the random number generator is the RandomState instance used
-        by `np.random`.
-
-    n_jobs : int, default: 1
-        The number of jobs to use for the computation. This works by computing
-        each of the n_init runs in parallel.
-        If -1 all CPUs are used. If 1 is given, no parallel computing code is
-        used at all, which is useful for debugging. For n_jobs below -1,
-        (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2, all CPUs but one
-        are used.
-
-    Attributes
-    ----------
-    cluster_centroids_ : array, [n_clusters, n_features]
-        Categories of cluster centroids
-
-    labels_ :
-        Labels of each point
-
-    cost_ : float
-        Clustering cost, defined as the sum distance of all points to
-        their respective cluster centroids.
-
-    n_iter_ : int
-        The number of iterations the algorithm ran for.
-
-    epoch_costs_ :
-        The cost of the algorithm at each epoch from start to completion.
-
-    gamma : float
-        The (potentially calculated) weighing factor.
-
-    Notes
-    -----
-    See:
-    Huang, Z.: Extensions to the k-modes algorithm for clustering large
-    data sets with categorical values, Data Mining and Knowledge
-    Discovery 2(3), 1998.
-
-    """
-
     def __init__(self, n_clusters=8, max_iter=100, num_dissim=euclidean_dissim,
-                 cat_dissim=vectors_matching_dissim, init='Cao', n_init=10, gamma=None,
+                 cat_dissim=vectors_matching_dissim, init='cao', n_init=10, gamma=None,
                  verbose=0, random_state=None, n_jobs=1):
 
         super(KernelITBD, self).__init__(n_clusters, max_iter, cat_dissim, init,
@@ -568,7 +472,6 @@ def do_kr(x, y, nclusters, verbose, use_global_attr_count):
     tracemalloc.start()
     categorical = [0, 3, 4, 5, 6, 8, 9, 11, 12]
     labels_ = KernelITBD(n_clusters=nclusters, verbose=verbose).fit_predict(x, categorical=categorical)
-    ari = evaluation.rand(labels_, y)
     nmi = evaluation.nmi(labels_, y)
     purity = evaluation.purity(labels_, y)
     homogenity, completeness, v_measure = homogeneity_completeness_v_measure(y, labels_)
@@ -589,7 +492,7 @@ def do_kr(x, y, nclusters, verbose, use_global_attr_count):
 
 def cal_mean_value(X, indexAttr):
     # print(X.iloc[:,indexAttr])
-    meanValue = mean(np.asarray(X.iloc[:,indexAttr], dtype= float))
+    meanValue = np.mean(np.asarray(X.iloc[:,indexAttr], dtype= float))
     return round(meanValue,3)
 
 def run(argv):

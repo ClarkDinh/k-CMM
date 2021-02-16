@@ -13,9 +13,9 @@ from sklearn.base import BaseEstimator, ClusterMixin
 from sklearn.utils import check_random_state
 from sklearn.utils.validation import check_array
 
-from kmodes.util import get_max_value_key, encode_features, get_unique_rows, \
+from lib.util import get_max_value_key, encode_features, get_unique_rows, \
     decode_centroids, pandas_to_numpy
-from kmodes.util.dissim import matching_dissim, ng_dissim, ITBD
+from lib.util.dissim import matching_dissim, ng_dissim, ITBD
 
 
 def init_huang(X, n_clusters, dissim, random_state, global_attr_freq=None):
