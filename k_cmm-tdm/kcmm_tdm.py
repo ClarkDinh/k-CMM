@@ -12,7 +12,7 @@ from scipy import sparse
 from collections import defaultdict
 import numpy as np
 import evaluation
-from lib import kmodes
+from lib import initialization as initi
 from lib.util.dissim import euclidean_dissim, vectors_matching_dissim, ITBD
 from lib.util import encode_features, get_unique_rows, decode_centroids, pandas_to_numpy
 from sklearn.metrics.cluster import homogeneity_completeness_v_measure
@@ -212,9 +212,9 @@ def kernel_ITBD_single(Xnum, Xcat, nnumattrs, ncatattrs, n_clusters, n_points,
         if verbose:
             print("Init: initializing centroids")
         if isinstance(init, str) and init.lower() == 'huang':
-            cat_centroids = kmodes.init_huang(Xcat, n_clusters, ITBD, random_state, global_attr_freq)
+            cat_centroids = initi.init_huang(Xcat, n_clusters, ITBD, random_state, global_attr_freq)
         elif isinstance(init, str) and init.lower() == 'cao':
-            cat_centroids = kmodes.init_cao(Xcat, n_clusters, global_attr_freq)
+            cat_centroids = initi.init_cao(Xcat, n_clusters, global_attr_freq)
         elif isinstance(init, str) and init.lower() == 'random':
             seeds = random_state.choice(range(n_points), n_clusters)
             cat_centroids = Xcat[seeds]
@@ -371,7 +371,7 @@ def kernel_ITBD(X, categorical, n_clusters, max_iter, num_dissim, cat_dissim,
            all_n_iters[best], all_epoch_costs[best], gamma
 
 
-class KernelITBD(kmodes.KModes):
+class KernelITBD(initi.Init):
     def __init__(self, n_clusters=8, max_iter=100, num_dissim=euclidean_dissim,
                  cat_dissim=vectors_matching_dissim, init='cao', n_init=10, gamma=None,
                  verbose=0, random_state=None, n_jobs=1):
